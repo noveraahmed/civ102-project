@@ -1,0 +1,275 @@
+%Load Case 2 Calculations
+
+% Set up parameters
+  % Hard coded values
+  % Initial value: P = 1 
+P = 1 
+d = [0 550 510 190];
+load = [0.302 -P 1.698 -P];
+
+%Initialize Cross sectional analysis
+t = 1.27;
+wb = 110;
+tb = 1.27
+hs = 120-1.27-1.27; %NOTE: full side length - 2*t 
+wf = 10;
+wbf = 0;
+wt = 130;
+tt = 1.27;
+wt_0 = wt-2*wf;
+
+%SFD Points (Hardcoded):
+V = [0.302 -0.698 1];
+
+%BMD Points (Hardcoded):
+M = [166.1 190];
+
+%x-axis
+m = [0 1400];
+n = [0 0];
+
+%SFD
+x = [0 0 550 550 1060 1060 1250 1250];
+SFD = [0 0.302*P 0.302*P -0.698*P -0.698*P 1*P 1*P 0];
+  
+%BMD
+x1 = [0 550 910 1250];
+BMD = [0 -(SFD(3)*x1(2)) (SFD(7)*(x1(3)-x1(2))) (SFD(8)*(x1(4)-x1(3)))]
+
+% Plotting graphs of SFD and BMD
+figure
+plot(x,SFD,'-')
+hold on
+plot(m,n,'-')
+title('SFD from P = 227, Pfail = 227.208')
+hold off
+
+figure
+plot(x1,BMD,'-')
+hold on
+plot(m,n,'-')
+title('BMD from P = 227, Pfail = 227.208')
+hold off
+
+% Diaphragms
+dia = 30; 
+a = [520 480 160];
+% Note: Using value 550 - 15 - 15 from either side
+
+% a = [550-2*dia 510-2*dia 190-2*dia]
+%dia = length between diaphram
+%wb = width bottom
+%wbf = width of bottom fold 
+%tb = thickness bottom
+%hs = height of  the two sides
+%wt = width top
+%tt = thickness top
+%wf = width of folds on top (total)
+%wt_0 = width of top without flanges (width of the top part of the "box")
+%a = the distances between diaphragms
+
+% Section A 
+height_tot = tb+hs+tt+wbf;
+wt_side = (wt-wt_0)/2; 
+
+%Y_BAR CALCULATION
+ab = wb*tb;
+abf = wbf*t;
+as = hs*t;
+af = wf*t;
+at = wt*tt;
+
+yb = 0.5*tb;
+ybf = tb+0.5*t;
+ys = 0.5*hs+tb;
+yf = hs+tb-0.5*t;
+yt = hs+tb+0.5*tt;
+
+y_bar=(((yb*ab)+(2*(ys*as))+(2*(yf*af))+(2*(ybf*abf))+(yt*at))/(ab+(2*as)+(2*af)+(2*abf)+at))
+   
+y_bot = y_bar
+y_top = height_tot - y_bot
+
+% I CALCULATION
+%I = sum(I0+Ad^2)
+%I0 = (w*t^3)/12
+
+% Finding each of the I0 
+I0b = (wb*tb^3)/12;
+I0s = (t*hs^3)/12;
+I0bf = (wbf*t^3)/12;
+I0f = (wf*t^3)/12;
+I0t = (wt*tt^3)/12;
+
+I_tot = I0b+(2*I0s)+(2*I0f)+(2*I0bf)+I0t;
+
+db = abs(y_bar-(yb));
+ds = abs(y_bar-(ys));
+dbf = abs(y_bar-(ybf));
+df = abs(y_bar-(yf));
+dt = abs(y_bar-(yt));
+
+d_tot = ((ab*db^2) + (2*(as*(ds^2))) + (2*(af*(df^2))) + (2*(abf*(dbf^2))) + (at*(dt^2)));
+
+%Calculation I value 
+I = I_tot + (ab*(db^2)) + (2*(as*(ds^2))) + (2*(af*(df^2))) + (2*(abf*(dbf^2))) + (at*(dt^2))
+%I = 4.17*10^5
+
+%Given Values 
+SigT = 30; 
+SigC = 6; 
+E    = 4000; 
+TauU = 4; 
+TauG = 2; 
+mu   = 0.2; 
+
+%Flexural Failures 
+%Note: I values are only for one zone 
+%Tension top:
+Ptt = SigT*I/(abs(M(1))*y_top)
+%Tension bottom:
+Ptb = SigT*I/(abs(M(1))*y_bot)
+%Compression top:
+Pct = SigC*I/(abs(M(2))*y_top)
+%Compression bottom:
+Pcb = SigC*I/(abs(M(2))*y_bot)
+
+% SHEAR STRESS
+% Distance from ybar to centroid
+ds1 = abs(y_bar - 0.5*tb)
+ds2 = abs(y_bar-tb-0.5*(y_bar-tb))
+ds3 = ds2
+
+% Shear Stress Areas 
+as1 = wb*tb; 
+as2 = (y_bar-tb)*t;
+as3 = as2;
+
+%Q centroid
+Q = as1*ds1 + as2*ds2 + as3*ds3 
+% Change as needed, might not have inclued a bottom flange if you wanted
+bweb = 2*t;
+
+%Q glue 
+QG = at*(y_top-0.5*tt) 
+bg = 2*wf;
+
+P_TauU = TauU*I*bweb/(max(V)*Q)          % shear stress
+P_TauG = TauG*I*bg/(max(V)*QG)           % glue joints
+
+% Plate Buckling Formulas
+    % Case 1 
+    % Constant sigma, restrained on 2 sides 
+SigCrit1 = 4*pi^2*E/(12*(1-mu^2))*(t/wt_0)^2
+if SigCrit1 < SigC
+    % Currently, these do not give 
+    Pb1 = SigCrit1*I/y_top*max((M)) 
+    Pb1b = SigCrit1*I/y_bot*(max(M))
+    Pb1b1 = SigCrit1*I/y_top*(min(M))
+    Pb1b2 = SigCrit1*I/y_bot*(min(M))
+end
+    % Case 2
+    % Constant sigma, restrained on 1 side
+SigCrit2 = 0.425*pi^2*E/(12*(1-mu^2))*(tt/wt_side)^2
+if SigCrit2 < SigC
+    Pb2 = SigCrit2*I/y_top*max(M)
+    Pb2b = SigCrit2*I/y_bot*max(M)
+end
+    % Case 3 
+    % Sigma max at top  
+SigCrit3 = 6*pi^2*E/(12*(1-mu^2))*(t/(hs+tb-y_bar))^2
+if SigCrit3 < SigC
+    Pb3 = SigCrit3*I/y_top*(max(M))
+    Pb3b = SigCrit3*I/y_bot*(max(M))
+end
+
+% Shear Buckling 
+bsb = 2*t;
+test2 = (t/max(a))^2;
+test3 = (t/(hs+tb))^2;
+test = test2+test3;
+TauCrit = ((5*pi^2*E)/(12*(1-mu^2)))*test
+if TauCrit < TauU
+    Psb = ((TauCrit*I*bsb)/(max(V)*Q))
+end 
+
+% Factor of Safety
+% FOS1 = min
+FOS1 = Ptt/M(1)
+FOS2 = Ptb/M(1)
+FOS3 = Pct/M(2)
+FOS4 = Pcb/M(2)
+
+%SFD vs Material Shear Failure 
+figure
+q2 = yline(P_TauU, 'color', 'r');
+hold on
+q3 = yline(-P_TauU, 'color', 'r');
+q1 = plot(x,SFD, '-');
+grid on
+plot(m,n,'-')
+title('SFD vs Material Shear Failure')
+hold off
+legend('Matboard Shear Failure')
+
+%SFD vs Glue Shear Failure
+figure
+q2 = yline(P_TauG, 'color', 'm');
+hold on
+q3 = yline(-P_TauG, 'color', 'm');
+q1 = plot(x,SFD, '-');
+grid on
+plot(m,n,'-')
+title('SFD vs Glue Shear Failure')
+hold off
+legend('Glue Shear Failure')
+
+%BMD vs Material Moment Failures
+x11 = [0 550 910 1250];
+BMD1 = [0 -166.1 190 0]
+
+momentx = [0 720 720 1250]
+tensiony = [-1800.4 -1800.4 2256.32 2256.32]
+compressiony = [-314.7820 -314.7820 394.2195 394.2195]
+
+figure
+hold on
+plot(momentx, tensiony, '-')
+plot(momentx, compressiony, '-')
+plot(x11,BMD1,'-')
+grid on
+plot(m,n,'-')
+title('BMD vs Material Moment Failures')
+hold off 
+legend('Matboard Tension failure', 'Matboard Compression Failure')
+
+%BMD vs Moment Buckling Failures
+bucklingx = [0 720 720 1250]
+buckling1 = [-227.208 -227.208 227.208 227.208]
+buckling2 = [-1577.407 -1577.407 1577.407 1577.407]
+buckling3 = [-2125.7 -2125.7 2125.7 2125.7]
+
+figure
+hold on
+plot(bucklingx, buckling1, '-')
+plot(bucklingx, buckling2, '-')
+plot(bucklingx, buckling3, '-')
+plot(x11,BMD1,'-')
+grid on
+plot(m,n,'-')
+title('BMD vs Material Buckling Failures')
+hold off 
+legend('Case 1', 'Case 2', 'Case 3')
+
+%SFD vs Shear Buckling Failure
+figure
+yline(875.2287, 'color', 'k');
+hold on
+yline(-875.2287, 'color', 'k');
+plot(x,SFD, '-');
+grid on
+plot(m,n,'-')
+title('SFD vs Shear Buckling Failure')
+hold off
+legend('Shear Buckling Failure')
+
